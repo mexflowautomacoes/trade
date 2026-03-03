@@ -1,0 +1,4 @@
+*.db
+*.rar
+__pycache__/
+.claude/

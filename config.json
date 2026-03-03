@@ -1,0 +1,8 @@
+{
+  "book_name": "FlowTrader_DDE.xlsx",
+  "sheet_name": "Plan1",
+  "data_start_row": 2,
+  "invert_data": true,
+  "min_quantity": 1,
+  "read_interval": 3
+}
