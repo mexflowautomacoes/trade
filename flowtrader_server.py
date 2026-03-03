@@ -834,7 +834,7 @@ def generate_dashboard_html(ws_port=8765):
 
   /* Times & Trades (Tape) */
   .tape-container {{
-    flex: 3; display: flex; flex-direction: column; overflow: hidden;
+    flex: 1; display: flex; flex-direction: column; overflow: hidden;
   }}
   .panel-header {{
     padding: 16px 20px; border-bottom: 1px solid var(--border);
@@ -881,30 +881,7 @@ def generate_dashboard_html(ws_port=8765):
   .t-price {{ color: var(--text-main); font-weight: 600; text-align: right; }}
   .t-qty {{ color: var(--yellow); font-weight: 700; text-align: right; background: rgba(251, 191, 36, 0.1); padding: 2px 6px; border-radius: 4px; }}
 
-  /* Top Brokers */
-  .brokers-container {{
-    flex: 2; display: flex; flex-direction: column; overflow: hidden;
-  }}
-  .brokers-list {{
-    flex: 1; overflow-y: auto; padding: 8px 20px; display: flex; flex-direction: column; gap: 12px;
-  }}
-  
-  .broker-row {{ display: flex; flex-direction: column; gap: 6px; }}
-  .broker-info {{ display: flex; justify-content: space-between; font-size: 12px; }}
-  .broker-name {{ color: var(--text-main); font-weight: 500; }}
-  .broker-stats {{ display: flex; gap: 8px; font-family: 'JetBrains Mono', monospace; }}
-  .bs-buy {{ color: var(--green-neon); }}
-  .bs-sep {{ color: var(--text-muted); opacity: 0.5; }}
-  .bs-sell {{ color: var(--red-neon); }}
-  
-  .broker-bar-bg {{ 
-    height: 6px; background: rgba(0,0,0,0.3); border-radius: 3px; 
-    overflow: hidden; display: flex; width: 100%;
-    box-shadow: inset 0 1px 3px rgba(0,0,0,0.5);
-  }}
-  .broker-bar-fill {{ height: 100%; transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1); }}
-  .bb-buy {{ background: linear-gradient(90deg, rgba(16,185,129,0.5), var(--green-neon)); border-radius: 3px 0 0 3px; }}
-  .bb-sell {{ background: linear-gradient(90deg, rgba(239,68,68,0.5), var(--red-neon)); border-radius: 0 3px 3px 0; }}
+
 
   /* Settings Button */
   .settings-btn {{
@@ -1444,14 +1421,7 @@ def generate_dashboard_html(ws_port=8765):
       </div>
     </div>
 
-    <div class="brokers-container glass-panel">
-      <div class="panel-header">
-        <span class="panel-title">Ranking Corretoras</span>
-      </div>
-      <div class="brokers-list" id="brokers">
-        <!-- Rendered by JS -->
-      </div>
-    </div>
+
 
   </div>
 </div>
@@ -1471,7 +1441,7 @@ const CHART_TEXT_COLOR = "#94a3b8";
 
 let allTrades = [];
 let buys = 0, sells = 0;
-let bBuys = {{}}, bSells = {{}};
+
 let ws = null, reconnectTimer = null;
 
 // --- Chart Variables ---
@@ -1612,15 +1582,13 @@ function initChart() {{
         }},
     }});
 
-    let resizeTimer = null;
-    window.addEventListener('resize', () => {{
-        if (resizeTimer) clearTimeout(resizeTimer);
-        resizeTimer = setTimeout(() => {{
-            if (chart && container.clientWidth > 0 && container.clientHeight > 0) {{
-                chart.resize(container.clientWidth, container.clientHeight);
-            }}
-        }}, 150);
+    // ResizeObserver handles ALL resize scenarios: window resize, sidebar toggle, etc.
+    const ro = new ResizeObserver(() => {{
+        if (chart && container.clientWidth > 0 && container.clientHeight > 0) {{
+            chart.resize(container.clientWidth, container.clientHeight);
+        }}
     }});
+    ro.observe(container);
 }}
 
 function connect() {{
@@ -1643,7 +1611,7 @@ function connect() {{
     }}
 
     if (msg.type === "history" || msg.type === "reset") {{
-      allTrades = []; buys = 0; sells = 0; bBuys = {{}}; bSells = {{}};
+      allTrades = []; buys = 0; sells = 0;
       document.getElementById("tape").innerHTML = "";
 
       historicalDataForTV = [];
@@ -1682,7 +1650,7 @@ function connect() {{
       if (areaSeries) areaSeries.setData(historicalDataForTV);
       if (chart) chart.timeScale().fitContent();
 
-      updateBrokersUI();
+
     }}
 
     if (msg.type === "update") {{
@@ -1697,7 +1665,7 @@ function connect() {{
         }}
         calcAndPushAvgForNewPoint(saldoVal, ts);
       }});
-      if (allTrades.length % 5 === 0) updateBrokersUI();
+
     }}
 
     if (msg.type === "server_config") {{
@@ -1726,14 +1694,11 @@ function connect() {{
 function processTrade(t, updateUI) {{
   allTrades.push(t);
 
-  const qty = Number(t.quantidade) || 0;
   const isBuy = t.agressor === "Comprador";
   if (isBuy) {{
     buys++;
-    bBuys[t.compradora] = (bBuys[t.compradora]||0) + qty;
   }} else {{
     sells++;
-    bSells[t.vendedora] = (bSells[t.vendedora]||0) + qty;
   }}
 
   if (updateUI) {{
@@ -1778,40 +1743,7 @@ function updateStatsUI(t) {{
   document.getElementById("sTime").textContent = t.hora;
 }}
 
-function updateBrokersUI() {{
-  const all = {{}};
-  for (const [k, v] of Object.entries(bBuys)) all[k] = {{ b: v, s: bSells[k] || 0 }};
-  for (const [k, v] of Object.entries(bSells)) if (!all[k]) all[k] = {{ b: 0, s: v }};
-  
-  // Sort by Total Volume
-  const sorted = Object.entries(all)
-    .sort((a, b) => (b[1].b + b[1].s) - (a[1].b + a[1].s))
-    .slice(0, 10);
-    
-  const maxVol = Math.max(...sorted.map(s => s[1].b + s[1].s), 1);
-  
-  document.getElementById("brokers").innerHTML = sorted.map(([name, vols]) => {{
-    const pctBuy = (vols.b / maxVol) * 100;
-    const pctSell = (vols.s / maxVol) * 100;
-    
-    return `
-      <div class="broker-row">
-        <div class="broker-info">
-          <span class="broker-name">${{name}}</span>
-          <div class="broker-stats">
-            <span class="bs-buy">${{vols.b}}</span>
-            <span class="bs-sep">/</span>
-            <span class="bs-sell">${{vols.s}}</span>
-          </div>
-        </div>
-        <div class="broker-bar-bg">
-          <div class="broker-bar-fill bb-buy" style="width: ${{pctBuy}}%"></div>
-          <div class="broker-bar-fill bb-sell" style="width: ${{pctSell}}%"></div>
-        </div>
-      </div>
-    `;
-  }}).join("");
-}}
+
 
 // ========== AVERAGE CALCULATION ENGINE ==========
 
@@ -2347,13 +2279,7 @@ function toggleSidebar() {{
     // Persist state
     clientSettings.sidebar_collapsed = sidebarCollapsed;
     saveClientSettings();
-    // Resize chart to fill available space after transition
-    setTimeout(() => {{
-        const container = document.getElementById('tvchart');
-        if (chart && container.clientWidth > 0 && container.clientHeight > 0) {{
-            chart.resize(container.clientWidth, container.clientHeight);
-        }}
-    }}, 370);
+    // ResizeObserver handles chart resize automatically
 }}
 
 function restoreSidebarState() {{
