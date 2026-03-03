@@ -677,7 +677,7 @@ def generate_dashboard_html(ws_port=8765):
     background-image: var(--bg-gradient);
     color: var(--text-main); 
     font-family: 'Outfit', sans-serif; 
-    min-height: 100vh;
+    height: 100vh;
     display: flex;
     flex-direction: column;
     overflow: hidden;
