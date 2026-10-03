@@ -1,0 +1,10 @@
+*.db
+config.json
+*.rar
+__pycache__/
+.claude/
+CLAUDE.md
+simular_dde.py
+FlowTrader_DDE.xlsx
+flowtrader_trades.db
+trader/
